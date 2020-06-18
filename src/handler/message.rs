@@ -88,7 +88,7 @@ pub async fn answer_command<'a>(
                         ClassDecoration::Silver => "\\+",
                         ClassDecoration::Gold => "\\+\\+",
                     };
-                    result.push_str(&format!(
+                    result = format!(
                         "*{id} \\({}위\\)*\n\
                         __{}, Class {}{}__\n\
                         {}\n\
@@ -102,7 +102,7 @@ pub async fn answer_command<'a>(
                         user.solved.to_formatted_string(&Locale::en),
                         user.exp.to_formatted_string(&Locale::en),
                         id = util::escape_markdown(&user.user_id),
-                    ));
+                    );
                     image = user.profile_image_url.clone();
                 }
                 if result.is_empty() {
