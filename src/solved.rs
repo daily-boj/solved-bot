@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use once_cell::sync::Lazy;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_repr::Deserialize_repr;
 use std::fmt::{self, Display};
@@ -166,12 +167,15 @@ pub async fn search(query: &str) -> anyhow::Result<Search> {
         query: &'a str,
     }
 
-    let item = SearchQuery { query };
-    let result = surf::get("https://api.solved.ac/v2/search/recommendations.json")
-        .set_query(&item)?
-        .recv_json::<ApiResult<Search>>()
-        .await
-        .map_err(|e| anyhow!("Error on http request: {}", e))?;
+    static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::new());
+    let result = CLIENT
+        .get("https://api.solved.ac/v2/search/recommendations.json")
+        .query(&[("query", query)])
+        .send()
+        .await?
+        .json::<ApiResult<Search>>()
+        .await?;
+
     result
         .result
         .ok_or_else(|| anyhow!("Unsuccessful solved.ac search: {}", query))

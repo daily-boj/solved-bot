@@ -1,6 +1,6 @@
 use actix_web::{middleware, web, App, HttpResponse, HttpServer};
 use log::error;
-use telegram_bot::{Api, Update};
+use telegram_bot::{Api, MessageKind, Update};
 mod handler;
 mod solved;
 mod util;
@@ -40,8 +40,24 @@ async fn webhook(bot: web::Data<Api>, msg: web::Json<Update>) -> HttpResponse {
 
 async fn handle_update(bot: &Api, update: Update) -> anyhow::Result<()> {
     use telegram_bot::UpdateKind;
-    if let UpdateKind::InlineQuery(query) = update.kind {
-        handler::answer_inline_query(bot, query).await?;
+    match update.kind {
+        UpdateKind::Message(ref message) => {
+            if message.forward.is_some() {
+                return Ok(());
+            }
+            match message.kind {
+                MessageKind::Text { ref data, .. } => {
+                    if data.starts_with('/') {
+                        handler::answer_command(bot, message, handler::Command::new(data)?).await?;
+                    } else {
+                        handler::answer_plain_message(bot, message, data).await?;
+                    }
+                }
+                _ => {}
+            }
+        }
+        UpdateKind::InlineQuery(query) => handler::answer_inline_query(bot, query).await?,
+        _ => {}
     }
     Ok(())
 }

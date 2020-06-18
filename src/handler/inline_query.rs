@@ -24,11 +24,10 @@ fn problem_to_query_result(problem: &solved::Problem) -> InlineQueryResult {
     let id = problem.id.to_string();
     let title = format!("{}번 - {}", &id, problem.caption);
     let text = format!(
-        "[{} \\| \\#{} \\- {}\n{}명 해결]({})",
+        "[{} \\| \\#{} \\- {}]({})",
         problem.level,
         &id,
         util::escape_markdown(&problem.caption),
-        problem.solved,
         problem.href
     );
     let content = InputTextMessageContent {
@@ -60,7 +59,7 @@ fn user_to_query_result(user: &solved::User) -> InlineQueryResult {
         util::escape_markdown(&user.bio),
         user.solved.to_formatted_string(&Locale::en),
         user.exp.to_formatted_string(&Locale::en),
-        id = user.user_id,
+        id = util::escape_markdown(&user.user_id),
     );
     InlineQueryResultArticle::new(
         &user.user_id,
