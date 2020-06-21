@@ -97,12 +97,41 @@ impl Display for Level {
 pub struct Search {
     pub autocomplete: Vec<AutoComplete>,
     pub problems: Vec<Problem>,
+    #[serde(deserialize_with = "deserialize_u32_or_empty_list")]
     pub problem_count: u32,
     pub users: Vec<User>,
+    #[serde(deserialize_with = "deserialize_u32_or_empty_list")]
     pub user_count: u32,
     pub algorithms: Vec<Algorithm>,
+    #[serde(deserialize_with = "deserialize_u32_or_empty_list")]
     pub algorithm_count: u32,
     pub wiki_articles: Vec<Wiki>,
+}
+
+fn deserialize_u32_or_empty_list<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    struct CustomVisitor;
+    impl<'de> serde::de::Visitor<'de> for CustomVisitor {
+        type Value = u32;
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("an integer or an empty list")
+        }
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(v as u32)
+        }
+        fn visit_seq<A>(self, _v: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>,
+        {
+            Ok(0)
+        }
+    }
+    deserializer.deserialize_any(CustomVisitor)
 }
 
 #[derive(Deserialize)]

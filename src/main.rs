@@ -29,13 +29,10 @@ fn not_found() -> HttpResponse {
 }
 
 async fn webhook(bot: web::Data<Api>, msg: web::Json<Update>) -> HttpResponse {
-    match handle_update(&bot, msg.0).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(e) => {
-            error!("An error occurred processing webhook: {:?}", e);
-            HttpResponse::InternalServerError().finish()
-        }
+    if let Err(e) = handle_update(&bot, msg.0).await {
+        error!("An error occurred processing webhook: {:?}", e);
     }
+    HttpResponse::Ok().finish()
 }
 
 async fn handle_update(bot: &Api, update: Update) -> anyhow::Result<()> {
