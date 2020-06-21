@@ -16,16 +16,11 @@ async fn main() -> std::io::Result<()> {
             .data(api)
             .wrap(middleware::Logger::default())
             .data(web::JsonConfig::default().limit(8192))
-            .service(web::resource(&token).route(web::post().to(webhook)))
-            .default_service(web::to(not_found))
+            .default_service(web::post().to(webhook))
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
-}
-
-fn not_found() -> HttpResponse {
-    HttpResponse::NotFound().finish()
 }
 
 async fn webhook(bot: web::Data<Api>, msg: web::Json<Update>) -> HttpResponse {
