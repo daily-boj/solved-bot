@@ -21,6 +21,7 @@ struct Handler {
 #[async_trait]
 impl UpdateHandler for Handler {
     async fn handle(&mut self, update: Update) {
+        info!("Incoming update {:?}", &update);
         if let Err(e) = handle_update(&self.api, update).await {
             error!("An error occurred processing webhook: {:?}", e);
         }
