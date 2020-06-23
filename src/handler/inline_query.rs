@@ -1,11 +1,11 @@
-use crate::{solved, util};
+use crate::solved;
 use anyhow::Context;
-use telegram_bot::{
-    AnswerInlineQuery, Api, InlineQuery, InlineQueryResult, InlineQueryResultArticle,
-    InputTextMessageContent, ParseMode,
+use tgbot::types::{
+    InlineQuery, InlineQueryResult, InlineQueryResultArticle, InputMessageContentText, ParseMode,
 };
+use tgbot::{methods::AnswerInlineQuery, Api};
 
-pub async fn answer_inline_query(bot: &Api, query: InlineQuery) -> anyhow::Result<()> {
+pub async fn answer_inline_query(bot: &Api, query: &InlineQuery) -> anyhow::Result<()> {
     let search_result = solved::search(&query.query)
         .await
         .with_context(|| format!("Query: {}", &query.query))?;
@@ -15,8 +15,8 @@ pub async fn answer_inline_query(bot: &Api, query: InlineQuery) -> anyhow::Resul
         .map(problem_to_query_result)
         .chain(search_result.users.iter().map(user_to_query_result))
         .collect();
-    let task = AnswerInlineQuery::new(query.id, inline_results);
-    bot.send(task).await?;
+    let task = AnswerInlineQuery::new(query.id.clone(), inline_results);
+    bot.execute(task).await?;
     Ok(())
 }
 
@@ -27,14 +27,12 @@ fn problem_to_query_result(problem: &solved::Problem) -> InlineQueryResult {
         "[{} \\| \\#{} \\- {}]({})",
         problem.level,
         &id,
-        util::escape_markdown(&problem.caption),
+        ParseMode::MarkdownV2.escape(&problem.caption),
         problem.href
     );
-    let content = InputTextMessageContent {
-        message_text: text,
-        parse_mode: Some(ParseMode::MarkdownV2),
-        disable_web_page_preview: true,
-    };
+    let content = InputMessageContentText::new(text)
+        .parse_mode(ParseMode::MarkdownV2)
+        .disable_web_page_preview(true);
     InlineQueryResultArticle::new(id, title, content).into()
 }
 
@@ -56,19 +54,17 @@ fn user_to_query_result(user: &solved::User) -> InlineQueryResult {
         user.level,
         user.class,
         class_decoration,
-        util::escape_markdown(&user.bio),
+        ParseMode::MarkdownV2.escape(&user.bio),
         user.solved.to_formatted_string(&Locale::en),
         user.exp.to_formatted_string(&Locale::en),
-        id = util::escape_markdown(&user.user_id),
+        id = ParseMode::MarkdownV2.escape(&user.user_id),
     );
     InlineQueryResultArticle::new(
         &user.user_id,
         &user.user_id,
-        InputTextMessageContent {
-            message_text: text,
-            parse_mode: Some(ParseMode::MarkdownV2),
-            disable_web_page_preview: true,
-        },
+        InputMessageContentText::new(text)
+            .parse_mode(ParseMode::MarkdownV2)
+            .disable_web_page_preview(true),
     )
     .into()
 }

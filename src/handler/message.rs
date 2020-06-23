@@ -1,35 +1,46 @@
-use crate::{solved, util};
+use crate::solved;
 use num_format::{Locale, ToFormattedString};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use solved::ClassDecoration;
-use telegram_bot::{Api, InputFileRef, Message, ParseMode, SendMessage, SendPhoto};
+use tgbot::types::{InputFile, Message, ParseMode};
+use tgbot::{
+    methods::{SendMessage, SendPhoto},
+    Api,
+};
 
 pub async fn answer_plain_message(bot: &Api, message: &Message, text: &str) -> anyhow::Result<()> {
     static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r#"#(\d{4,})|(\d{4,})번"#).unwrap());
     let mut result = String::new();
-    for capture in REGEX.captures_iter(text) {
-        if let Some(number) = capture.get(1).or_else(|| capture.get(2)) {
-            let search = solved::search(number.as_str()).await?;
-            if let Some(problem) = search.problems.first() {
-                result.push_str(&format!(
-                    "[{} \\| \\#{} \\- {}]({})\n",
-                    problem.level,
-                    problem.id,
-                    util::escape_markdown(&problem.caption),
-                    problem.href
-                ));
-            }
+    let matches: Vec<_> = REGEX
+        .captures_iter(text)
+        .filter_map(|c| c.get(1).or_else(|| c.get(2)))
+        .collect();
+    for number in matches {
+        let number = number.as_str();
+        let number_int = number.parse().unwrap_or(0);
+        let search = solved::search(number).await?;
+        if let Some(problem) = search
+            .problems
+            .iter()
+            .find(|problem| problem.id == number_int)
+        {
+            result.push_str(&format!(
+                "[{} \\| \\#{} \\- {}]({})\n",
+                problem.level,
+                problem.id,
+                ParseMode::MarkdownV2.escape(&problem.caption),
+                problem.href
+            ));
         }
     }
     result.pop();
     if !result.is_empty() {
-        let mut reply = SendMessage::new(message.chat.id(), result);
-        reply
-            .reply_to(message)
-            .disable_preview()
+        let reply = SendMessage::new(message.get_chat_id(), result)
+            .reply_to_message_id(message.id)
+            .disable_web_page_preview(true)
             .parse_mode(ParseMode::MarkdownV2);
-        bot.send(reply).await?;
+        bot.execute(reply).await?;
     }
     Ok(())
 }
@@ -62,7 +73,7 @@ pub async fn answer_command<'a>(
                         "[{} \\| \\#{} \\- {}]({})\n",
                         problem.level,
                         problem.id,
-                        util::escape_markdown(&problem.caption),
+                        ParseMode::MarkdownV2.escape(&problem.caption),
                         problem.href
                     ));
                 }
@@ -70,12 +81,11 @@ pub async fn answer_command<'a>(
                 if result.is_empty() {
                     result.push_str("검색 결과가 없습니다\\.");
                 }
-                let mut reply = SendMessage::new(message.chat.id(), result);
-                reply
-                    .reply_to(message)
-                    .disable_preview()
+                let reply = SendMessage::new(message.get_chat_id(), result)
+                    .reply_to_message_id(message.id)
+                    .disable_web_page_preview(true)
                     .parse_mode(ParseMode::MarkdownV2);
-                bot.send(reply).await?;
+                bot.execute(reply).await?;
             }
             CommandType::User => {
                 let query = command.rest();
@@ -98,33 +108,31 @@ pub async fn answer_command<'a>(
                         user.level,
                         user.class,
                         class_decoration,
-                        util::escape_markdown(&user.bio),
+                        ParseMode::MarkdownV2.escape(&user.bio),
                         user.solved.to_formatted_string(&Locale::en),
                         user.exp.to_formatted_string(&Locale::en),
-                        id = util::escape_markdown(&user.user_id),
+                        id = ParseMode::MarkdownV2.escape(&user.user_id),
                     );
                     image = user.profile_image_url.clone();
                 }
                 if result.is_empty() {
                     result.push_str("검색 결과가 없습니다\\.");
-                    let mut reply = SendMessage::new(message.chat.id(), result);
-                    reply
-                        .reply_to(message)
-                        .disable_preview()
+                    let reply = SendMessage::new(message.get_chat_id(), result)
+                        .reply_to_message_id(message.id)
+                        .disable_web_page_preview(true)
                         .parse_mode(ParseMode::MarkdownV2);
-                    bot.send(reply).await?;
+                    bot.execute(reply).await?;
                 } else {
-                    let mut reply = SendPhoto::new(
-                        message.chat.id(),
-                        InputFileRef::new(image.as_deref().unwrap_or(
+                    let reply = SendPhoto::new(
+                        message.get_chat_id(),
+                        InputFile::url(image.as_deref().unwrap_or(
                             "https://static.solved.ac/misc/360x360/default_profile.png",
                         )),
-                    );
-                    reply
-                        .caption(result)
-                        .reply_to(message)
-                        .parse_mode(ParseMode::MarkdownV2);
-                    bot.send(reply).await?;
+                    )
+                    .caption(result)
+                    .reply_to_message_id(message.id)
+                    .parse_mode(ParseMode::MarkdownV2);
+                    bot.execute(reply).await?;
                 }
             }
         }

@@ -196,7 +196,7 @@ pub async fn search(query: &str) -> anyhow::Result<Search> {
         query: &'a str,
     }
 
-    static CLIENT: Lazy<reqwest::Client> = Lazy::new(|| reqwest::Client::new());
+    static CLIENT: Lazy<reqwest::Client> = Lazy::new(reqwest::Client::new);
     let result = CLIENT
         .get("https://api.solved.ac/v2/search/recommendations.json")
         .query(&[("query", query)])
