@@ -10,8 +10,10 @@ async fn main() {
     env_logger::init();
     let token = std::env::var("BOT_TOKEN").expect("Could not find BOT_TOKEN");
     let api = Api::new(Config::new(token)).expect("Could not create API");
-    info!("webhook running on 127.0.0.1:8080");
-    webhook::run_server(([127, 0, 0, 1], 8080), "/", Handler { api })
+    let bind_address = std::env::var("BOT_BIND_ADDRESS").expect("Could not find BOT_BIND_ADDRESS");
+    let socket_addr = bind_address.parse::<std::net::SocketAddr>().unwrap();
+    info!("webhook running on {}", bind_address);
+    webhook::run_server(socket_addr, "/", Handler { api })
         .await
         .unwrap();
 }
