@@ -45,9 +45,9 @@ pub async fn answer_plain_message(bot: &Api, message: &Message, text: &str) -> a
     Ok(())
 }
 
-enum CommandType {
-    Problem,
-    User,
+mod command_type {
+    pub const PROBLEM: u64 = 1;
+    pub const USER: u64 = 2;
 }
 
 pub async fn answer_command<'a>(
@@ -55,16 +55,18 @@ pub async fn answer_command<'a>(
     message: &'a Message,
     command: Command<'a>,
 ) -> anyhow::Result<()> {
-    use radix_trie::Trie;
-    static COMMANDS: Lazy<Trie<&str, CommandType>> = Lazy::new(|| {
-        let mut trie = Trie::new();
-        trie.insert("problem", CommandType::Problem);
-        trie.insert("user", CommandType::User);
-        trie
+    use fst::automaton::Subsequence;
+    use fst::{IntoStreamer, Map, MapBuilder, Streamer};
+    static COMMANDS: Lazy<Map<Vec<u8>>> = Lazy::new(|| {
+        let mut map = MapBuilder::memory();
+        map.insert("problem", command_type::PROBLEM).unwrap();
+        map.insert("user", command_type::USER).unwrap();
+        map.into_map()
     });
-    if let Some(op) = COMMANDS.get_ancestor_value(command.label) {
-        match op {
-            CommandType::Problem => {
+    let matcher = Subsequence::new(command.label);
+    if let Some((_key, value)) = COMMANDS.search(matcher).into_stream().next() {
+        match value {
+            command_type::PROBLEM => {
                 let query = command.rest();
                 let search = solved::search(query).await?;
                 let mut result = String::new();
@@ -87,7 +89,7 @@ pub async fn answer_command<'a>(
                     .parse_mode(ParseMode::MarkdownV2);
                 bot.execute(reply).await?;
             }
-            CommandType::User => {
+            command_type::USER => {
                 let query = command.rest();
                 let search = solved::search(query).await?;
                 let mut result = String::new();
@@ -135,6 +137,7 @@ pub async fn answer_command<'a>(
                     bot.execute(reply).await?;
                 }
             }
+            _ => {}
         }
     }
     Ok(())

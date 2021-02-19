@@ -4,14 +4,16 @@ use tgbot::{async_trait, types::Update, webhook, Api, Config, UpdateHandler};
 mod handler;
 mod solved;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
     let token = std::env::var("BOT_TOKEN").expect("Could not find BOT_TOKEN");
     let api = Api::new(Config::new(token)).expect("Could not create API");
     info!("webhook running on 127.0.0.1:8080");
-    let task = webhook::run_server(([127, 0, 0, 1], 8080), "/", Handler { api });
-    async_std::task::block_on(task).unwrap();
+    webhook::run_server(([127, 0, 0, 1], 8080), "/", Handler { api })
+        .await
+        .unwrap();
 }
 
 struct Handler {
